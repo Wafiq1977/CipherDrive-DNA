@@ -1,0 +1,43 @@
+# Build artifacts
+target/
+build/
+*.jar
+*.war
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+application-local.yml
+application-prod.yml
+*.pem
+*.key
+
+# Database
+*.db
+*.sqlite
+
+# MinIO data (if local)
+data/minio/
+
+# Maven wrapper
+.mvn/
+mvnw
+mvnw.cmd

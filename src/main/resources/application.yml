@@ -1,0 +1,152 @@
+# ============================================================
+# CipherDrive-DNA MVP — Application Configuration
+# ============================================================
+
+spring:
+  application:
+    name: cipherdrive-dna
+
+  # ── MySQL Configuration ──
+  datasource:
+    url: jdbc:mysql://localhost:3306/cipherdrive_dna?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: ${MYSQL_PASSWORD:Iznawafiq1977}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+
+  # ── JPA / Hibernate ──
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        batch_size: 50
+
+# ── CipherDrive-DNA Security Configuration ──
+cipherdrive:
+  security:
+    jwt:
+      # Base64-encoded 256-bit secret key (generate with: openssl rand -base64 32)
+      secret-key: ${JWT_SECRET_KEY:dGhpc0lzQURlbW9TZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb25QbGVhc2VDaGFuZ2VUaGlzSW5Qcm9kdWN0aW9u}
+      access-token-expiration: 900000    # 15 minutes
+      refresh-token-expiration: 604800000 # 7 days
+      issuer: cipherdrive-dna
+    max-failed-attempts: 5
+    lock-duration-minutes: 30
+    max-concurrent-sessions: 3
+
+# ── MinIO Configuration ──
+minio:
+  endpoint: http://localhost:9000
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: cipherdrive-files
+
+# ── Digital DNA Engine Configuration ──
+cipherdrive:
+  dna:
+    observation-window-days: 7           # Time window for behavioral event aggregation
+    computation-interval-minutes: 5      # Minimum interval between DNA recomputations per user
+    drift-thresholds:
+      normal: 0.15                       # Below this = NORMAL regime
+      low: 0.30                          # Below this = LOW_DRIFT regime
+      high: 0.50                         # Below this = HIGH_DRIFT regime (above = ANOMALY)
+    composite-alpha: 0.5                 # AHP vs Entropy weight fusion: alpha*w_ahp + (1-alpha)*w_entropy
+    normalization:
+      max-login-per-day: 10              # Max expected logins/day for frequency normalization
+      max-session-duration-min: 480      # Max session duration (8 hours) for normalization
+      max-file-ops-per-day: 50           # Max file operations/day for frequency normalization
+      max-file-size-bytes: 104857600     # Max file size (100 MB) for file size normalization
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"   # DNA recalculation: every 5 minutes
+      monitoring-cron: "0 */1 * * * *"      # Drift monitoring: every 1 minute
+      baseline-cron: "0 0 2 * * *"          # Baseline recalibration: daily at 02:00
+      cleanup-cron: "0 0 3 * * *"           # Stale profile cleanup: daily at 03:00
+    retention-days: 90                   # DNA profile retention period
+
+  # ── ICS (Identity Confidence Score) Engine Configuration ──
+  ics:
+    component-weights:
+      behavioral: 0.35                   # DNA similarity weight (highest)
+      device: 0.20                       # Device fingerprint weight
+      temporal: 0.25                     # Session timing pattern weight
+      context: 0.20                      # IP/network context weight
+    temporal-decay:
+      lambda: 0.05                       # Decay rate (half-life ≈ 13.86 hours)
+      max-decay-hours: 48                # Cap decay at 48 hours
+    recovery:
+      rate: 2.0                          # Points per consecutive verified action
+      max-consecutive: 10                # Max consecutive actions counted
+      max-bonus: 20.0                    # Maximum recovery bonus (rate * max_consecutive)
+    thresholds:
+      very-high: 85                      # VERY_HIGH: 85-100
+      high: 70                           # HIGH: 70-84
+      moderate: 40                       # MODERATE: 40-69
+      low: 25                            # LOW: 25-39
+      critical: 0                        # CRITICAL: 0-24
+    defaults:
+      behavioral-no-baseline: 70.0       # Default B when no DNA baseline exists
+      device-first-session: 80.0         # Default D for first session
+      temporal-new-user: 75.0            # Default T for new users
+      context-known-ip: 80.0             # Default C for known IPs
+    access-decision:
+      step-up-operations: DELETE,ADMIN   # Operations requiring step-up auth even at HIGH
+
+  # ── TEM (Trust Evolution Model) Engine Configuration ──
+  tem:
+    observation-window-days: 14          # ICS lookback window for OU estimation (longer than DNA)
+    computation-interval-minutes: 5      # Minimum interval between TEM recomputations per user
+    moving-window-size: 5               # Moving window for velocity/acceleration smoothing
+    tdi-weights:
+      velocity: 0.60                    # Weight for |velocity| in TDI
+      acceleration: 0.40                # Weight for |acceleration| in TDI
+    regime-thresholds:
+      velocity-stable: 2.0              # Max |velocity| for STABLE regime
+      velocity-drifting: 5.0            # Max |velocity| for DRIFTING regime
+      velocity-recovering: 1.0          # Min velocity for RECOVERING regime
+      velocity-degrading: -1.0           # Max velocity for DEGRADING regime (negative = falling)
+      trust-high: 70.0                  # Min trust score for STABLE regime
+      trust-moderate: 50.0              # Min trust score for DRIFTING regime
+    euler-maruyama:
+      dt-hours: 1.0                     # Default time step for EM solver (hours)
+      forecast-steps: 6                 # Number of forecast steps (6 hours ahead)
+    ols-estimation:
+      min-observations: 5               # Minimum ICS observations for OLS regression
+      max-theta: 10.0                   # Maximum allowed theta (mean-reversion speed)
+      min-theta: 0.001                  # Minimum allowed theta (prevent zero reversion)
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"   # TEM recalculation: every 5 minutes
+      monitoring-cron: "0 */2 * * * *"      # Regime monitoring: every 2 minutes
+      parameter-estimation-cron: "0 30 2 * * *"  # OU re-estimation: daily at 02:30
+      cleanup-cron: "0 30 3 * * *"           # Stale snapshot cleanup: daily at 03:30
+    retention-days: 90                  # TEM snapshot retention period
+
+# ── Server ──
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-stacktrace: never
+
+# ── Logging ──
+logging:
+  level:
+    com.cipherdrive.dna: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN

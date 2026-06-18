@@ -48,15 +48,12 @@ cipherdrive:
     lock-duration-minutes: 30
     max-concurrent-sessions: 3
 
-# ── MinIO Configuration ──
-minio:
-  endpoint: http://localhost:9000
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
-  bucket: cipherdrive-files
+  # ── MinIO Configuration ──
+  # NOTE: minio.* keys remain at root level (not under cipherdrive:) to match
+  #       @Value("${minio.endpoint}") injection in MinioConfig.java.
+  #       See minio.* block below.
 
-# ── Digital DNA Engine Configuration ──
-cipherdrive:
+  # ── Digital DNA Engine Configuration ──
   dna:
     observation-window-days: 7           # Time window for behavioral event aggregation
     computation-interval-minutes: 5      # Minimum interval between DNA recomputations per user
@@ -133,6 +130,13 @@ cipherdrive:
       parameter-estimation-cron: "0 30 2 * * *"  # OU re-estimation: daily at 02:30
       cleanup-cron: "0 30 3 * * *"           # Stale snapshot cleanup: daily at 03:30
     retention-days: 90                  # TEM snapshot retention period
+
+# ── MinIO Configuration (root-level — consumed by MinioConfig.java) ──
+minio:
+  endpoint: http://localhost:9000
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: cipherdrive-files
 
 # ── Server ──
 server:

@@ -122,20 +122,21 @@ A long-term trust trajectory computed by `TEMCalculator`:
 
 | Component       | Technology |
 |-----------------|------------|
-| Framework       | Spring Boot |
+| Framework       | Spring Boot 3.3.x |
 | ORM             | Spring Data JPA / Hibernate |
-| Database        | MySQL 8.x |
-| Object Storage  | MinIO |
-| Auth            | JWT (HS256) |
-| Build           | Maven (recommended) |
-| Java Version    | 17+ |
+| Database        | MySQL 8.x (prod) / H2 (test) |
+| Object Storage  | MinIO 8.5.x |
+| Auth            | JWT (jjwt 0.12.x, HS256) |
+| Build           | Maven 3.8+ |
+| Java Version    | 17 (also tested on 21) |
+| CI              | GitHub Actions |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- JDK 17+
+- JDK 17+ (or 21)
 - MySQL 8.x
 - MinIO server (local or remote)
 - Maven 3.8+
@@ -157,10 +158,29 @@ Update `src/main/resources/application.yml` with your MySQL and MinIO credential
 ### 4. Build & run
 ```bash
 mvn clean package
-java -jar target/cipherdrive-dna-mvp.jar
+java -jar target/cipherdrive-dna-mvp-0.1.0-SNAPSHOT.jar
 ```
 
 The API will be available at `http://localhost:8080`.
+
+### 5. Run tests
+```bash
+mvn test
+```
+
+Tests run with the `test` profile (in-memory H2 + mock MinIO) — no external services required.
+
+---
+
+## 🤖 Continuous Integration
+
+This repository includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs on every push / pull request to `main` and `develop`:
+
+- **Matrix build**: JDK 17 and JDK 21
+- **Steps**: compile → test → package → upload JAR artifact
+- **Verify job**: extra build verification on PRs
+
+Build status: [![CI](https://github.com/Wafiq1977/CipherDrive-DNA/actions/workflows/ci.yml/badge.svg)](https://github.com/Wafiq1977/CipherDrive-DNA/actions/workflows/ci.yml)
 
 ---
 

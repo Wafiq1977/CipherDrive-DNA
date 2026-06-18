@@ -1,0 +1,137 @@
+# ============================================================
+# CipherDrive-DNA MVP — Test Profile Configuration
+# ============================================================
+# Activated automatically when SPRING_PROFILES_ACTIVE=test.
+# Uses in-memory H2 database so unit/integration tests run
+# without external MySQL or MinIO dependencies.
+# ============================================================
+
+spring:
+  profiles:
+    active: test
+
+  datasource:
+    url: jdbc:h2:mem:cipherdrive_test;DB_CLOSE_DELAY=-1;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # Disable MinIO health check during tests
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.metrics.export.ConditionalOnEnabledMetricsExportAutoConfiguration
+
+# CipherDrive-DNA test config — overrides application.yml values
+# that would otherwise fail in CI (no MySQL, no MinIO, no real JWT secret).
+cipherdrive:
+  security:
+    jwt:
+      secret-key: dGhpc0lzQVRlc3RTZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb25QbGVhc2VEb05vdFVzZUluUHJvZHVjdGlvbg==
+      access-token-expiration: 900000
+      refresh-token-expiration: 604800000
+      issuer: cipherdrive-dna-test
+    max-failed-attempts: 5
+    lock-duration-minutes: 30
+    max-concurrent-sessions: 3
+
+  dna:
+    observation-window-days: 7
+    computation-interval-minutes: 5
+    drift-thresholds:
+      normal: 0.15
+      low: 0.30
+      high: 0.50
+    composite-alpha: 0.5
+    normalization:
+      max-login-per-day: 10
+      max-session-duration-min: 480
+      max-file-ops-per-day: 50
+      max-file-size-bytes: 104857600
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"
+      monitoring-cron: "0 */1 * * * *"
+      baseline-cron: "0 0 2 * * *"
+      cleanup-cron: "0 0 3 * * *"
+    retention-days: 90
+
+  ics:
+    component-weights:
+      behavioral: 0.35
+      device: 0.20
+      temporal: 0.25
+      context: 0.20
+    temporal-decay:
+      lambda: 0.05
+      max-decay-hours: 48
+    recovery:
+      rate: 2.0
+      max-consecutive: 10
+      max-bonus: 20.0
+    thresholds:
+      very-high: 85
+      high: 70
+      moderate: 40
+      low: 25
+      critical: 0
+    defaults:
+      behavioral-no-baseline: 70.0
+      device-first-session: 80.0
+      temporal-new-user: 75.0
+      context-known-ip: 80.0
+    access-decision:
+      step-up-operations: DELETE,ADMIN
+
+  tem:
+    observation-window-days: 14
+    computation-interval-minutes: 5
+    moving-window-size: 5
+    tdi-weights:
+      velocity: 0.60
+      acceleration: 0.40
+    regime-thresholds:
+      velocity-stable: 2.0
+      velocity-drifting: 5.0
+      velocity-recovering: 1.0
+      velocity-degrading: -1.0
+      trust-high: 70.0
+      trust-moderate: 50.0
+    euler-maruyama:
+      dt-hours: 1.0
+      forecast-steps: 6
+    ols-estimation:
+      min-observations: 5
+      max-theta: 10.0
+      min-theta: 0.001
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"
+      monitoring-cron: "0 */2 * * * *"
+      parameter-estimation-cron: "0 30 2 * * *"
+      cleanup-cron: "0 30 3 * * *"
+    retention-days: 90
+
+# MinIO test config — points to a non-existent server.
+# MinioBucketInitializer logs a warning and continues, so tests
+# that don't touch file storage will still pass.
+minio:
+  endpoint: http://localhost:9000
+  access-key: test-access-key
+  secret-key: test-secret-key
+  bucket: cipherdrive-files-test
+
+server:
+  port: 0   # Random port to avoid conflicts in parallel CI
+
+logging:
+  level:
+    com.cipherdrive.dna: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

@@ -1,0 +1,106 @@
+# ============================================================
+# CipherDrive-DNA MVP — Docker Compose (local dev / self-host)
+# ============================================================
+# One-command full stack:
+#   docker compose up -d
+#
+# Brings up:
+#   - MySQL 8.x      (database, persistent volume)
+#   - MinIO          (object storage, persistent volume + web console)
+#   - CipherDrive-DNA Spring Boot app (depends on both)
+#
+# Stop & wipe all data:
+#   docker compose down -v
+# ============================================================
+
+services:
+
+  # ── MySQL Database ──────────────────────────────────────────
+  mysql:
+    image: mysql:8.4
+    container_name: cipherdrive-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cipherdrive_dna}
+      MYSQL_USER: ${MYSQL_USER:-cipherdrive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cipherdrivepass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./cipherdrive_dna_mvp.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cipherdrive-net
+
+  # ── MinIO Object Storage ────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: cipherdrive-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cipherdrive-net
+
+  # ── CipherDrive-DNA Spring Boot App ─────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cipherdrive-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-cipherdrive_dna}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      MYSQL_USER: ${MYSQL_USER:-cipherdrive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cipherdrivepass}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-Y2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tbm90LWEtc2VjcmV0LWtleQ==}
+      JWT_ISSUER: cipherdrive-dna-local
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: cipherdrive-files
+      PORT: 8080
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - cipherdrive-net
+
+networks:
+  cipherdrive-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  minio_data:

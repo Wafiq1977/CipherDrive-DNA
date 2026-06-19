@@ -1,0 +1,180 @@
+# ============================================================
+# CipherDrive-DNA MVP — Production Configuration
+# ============================================================
+# Activated automatically when SPRING_PROFILES_ACTIVE=prod.
+#
+# ALL sensitive values come from environment variables.
+# No hardcoded credentials in this file — safe to commit to git.
+#
+# Required environment variables for production:
+#   MYSQL_URL          e.g. jdbc:mysql://host:3306/cipherdrive_dna?useSSL=true
+#   MYSQL_USER         database user
+#   MYSQL_PASSWORD     database password (KEEP SECRET)
+#   JWT_SECRET_KEY     base64-encoded 256-bit key (openssl rand -base64 32)
+#   MINIO_ENDPOINT     e.g. https://minio.example.com
+#   MINIO_ACCESS_KEY   MinIO/S3 access key
+#   MINIO_SECRET_KEY   MinIO/S3 secret key (KEEP SECRET)
+# ============================================================
+
+spring:
+  application:
+    name: cipherdrive-dna
+
+  # ── Production Database ──
+  datasource:
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${MYSQL_POOL_MAX:20}
+      minimum-idle: ${MYSQL_POOL_MIN:5}
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate        # NEVER use 'update' or 'create' in prod
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        batch_size: 50
+
+# ── CipherDrive-DNA Security Configuration ──
+cipherdrive:
+  security:
+    jwt:
+      # Production secret MUST be provided via environment variable.
+      # No default — application will fail to start if missing.
+      secret-key: ${JWT_SECRET_KEY}
+      access-token-expiration: 900000    # 15 minutes
+      refresh-token-expiration: 604800000 # 7 days
+      issuer: ${JWT_ISSUER:cipherdrive-dna}
+    max-failed-attempts: 5
+    lock-duration-minutes: 30
+    max-concurrent-sessions: 3
+
+  dna:
+    observation-window-days: 7
+    computation-interval-minutes: 5
+    drift-thresholds:
+      normal: 0.15
+      low: 0.30
+      high: 0.50
+    composite-alpha: 0.5
+    normalization:
+      max-login-per-day: 10
+      max-session-duration-min: 480
+      max-file-ops-per-day: 50
+      max-file-size-bytes: 104857600
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"
+      monitoring-cron: "0 */1 * * * *"
+      baseline-cron: "0 0 2 * * *"
+      cleanup-cron: "0 0 3 * * *"
+    retention-days: 90
+
+  ics:
+    component-weights:
+      behavioral: 0.35
+      device: 0.20
+      temporal: 0.25
+      context: 0.20
+    temporal-decay:
+      lambda: 0.05
+      max-decay-hours: 48
+    recovery:
+      rate: 2.0
+      max-consecutive: 10
+      max-bonus: 20.0
+    thresholds:
+      very-high: 85
+      high: 70
+      moderate: 40
+      low: 25
+      critical: 0
+    defaults:
+      behavioral-no-baseline: 70.0
+      device-first-session: 80.0
+      temporal-new-user: 75.0
+      context-known-ip: 80.0
+    access-decision:
+      step-up-operations: DELETE,ADMIN
+
+  tem:
+    observation-window-days: 14
+    computation-interval-minutes: 5
+    moving-window-size: 5
+    tdi-weights:
+      velocity: 0.60
+      acceleration: 0.40
+    regime-thresholds:
+      velocity-stable: 2.0
+      velocity-drifting: 5.0
+      velocity-recovering: 1.0
+      velocity-degrading: -1.0
+      trust-high: 70.0
+      trust-moderate: 50.0
+    euler-maruyama:
+      dt-hours: 1.0
+      forecast-steps: 6
+    ols-estimation:
+      min-observations: 5
+      max-theta: 10.0
+      min-theta: 0.001
+    scheduler:
+      recalculation-cron: "0 */5 * * * *"
+      monitoring-cron: "0 */2 * * * *"
+      parameter-estimation-cron: "0 30 2 * * *"
+      cleanup-cron: "0 30 3 * * *"
+    retention-days: 90
+
+# ── MinIO Configuration (root-level — consumed by MinioConfig.java) ──
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket: ${MINIO_BUCKET:cipherdrive-files}
+
+# ── Server ──
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-stacktrace: never
+
+# ── Actuator — health checks for Render/load balancer ──
+management:
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+# ── Logging (production — WARN by default) ──
+logging:
+  level:
+    com.cipherdrive.dna: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN

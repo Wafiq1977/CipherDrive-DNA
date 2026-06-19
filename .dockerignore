@@ -1,0 +1,60 @@
+# Build artifacts
+target/
+build/
+*.jar
+*.war
+*.class
+!mvnw
+!mvnw.cmd
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets — NEVER copy these into the image
+.env
+.env.*
+!.env.example
+application-local.yml
+application-prod-local.yml
+*.pem
+*.key
+
+# Database
+*.db
+*.sqlite
+
+# Documentation (kept in image, but excluded to keep build context small)
+# Comment out the next line if you want docs in the image.
+# *.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# CI
+.github/
+
+# MinIO local data
+data/minio/

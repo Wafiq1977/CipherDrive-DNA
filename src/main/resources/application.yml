@@ -7,10 +7,13 @@ spring:
     name: cipherdrive-dna
 
   # ── MySQL Configuration ──
+  # For production use the 'prod' profile (application-prod.yml) and inject
+  # credentials via environment variables.
+  # Local dev: export MYSQL_URL, MYSQL_USER, MYSQL_PASSWORD or override here.
   datasource:
-    url: jdbc:mysql://localhost:3306/cipherdrive_dna?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: ${MYSQL_PASSWORD:Iznawafiq1977}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/cipherdrive_dna?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:changeme}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -39,8 +42,11 @@ spring:
 cipherdrive:
   security:
     jwt:
-      # Base64-encoded 256-bit secret key (generate with: openssl rand -base64 32)
-      secret-key: ${JWT_SECRET_KEY:dGhpc0lzQURlbW9TZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb25QbGVhc2VDaGFuZ2VUaGlzSW5Qcm9kdWN0aW9u}
+      # Base64-encoded 256-bit secret key.
+      # IMPORTANT: generate your own with `openssl rand -base64 32` and set
+      # the JWT_SECRET_KEY environment variable in production.
+      # The default below is a NON-SECRET placeholder only for local dev.
+      secret-key: ${JWT_SECRET_KEY:Y2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tbm90LWEtc2VjcmV0LWtleQ==}
       access-token-expiration: 900000    # 15 minutes
       refresh-token-expiration: 604800000 # 7 days
       issuer: cipherdrive-dna

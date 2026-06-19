@@ -1,0 +1,98 @@
+# ============================================================
+# CipherDrive-DNA MVP — Render.com Blueprint
+# ============================================================
+# Deploy with one click:
+#   1. Push this file to your GitHub repo's main branch
+#   2. Go to https://dashboard.render.com/select-repo?type=blueprint
+#   3. Select your CipherDrive-DNA repo
+#   4. Render auto-detects this render.yaml and provisions everything
+#
+# This blueprint provisions:
+#   - 1× MySQL database (free/discounted internal instance)
+#   - 1× MinIO-compatible disk (Render Disk)
+#   - 1× Web Service (Spring Boot app, Docker-based)
+#
+# Cost estimate (Render, USD):
+#   - Web Service (Starter, 512MB):  $7/month  (free with $300 credit)
+#   - MySQL (free 90-day, then $7):  $7/month
+#   - Disk 1GB:                      $0.25/month
+#   Total: ~$14.25/month  (free for ~20 months with $300 credit)
+# ============================================================
+
+services:
+
+  # ── Web Service: Spring Boot app ──────────────────────────────
+  - type: web
+    name: cipherdrive-dna
+    runtime: docker
+    plan: starter
+    region: singapore          # change to closest region to your users
+    branch: main
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+
+      # Activate production profile
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+
+      # ── Database (linked to MySQL service below) ──
+      - key: MYSQL_URL
+        fromDatabase:
+          name: cipherdrive-mysql
+          property: jdbcConnectionStringNoDb
+      - key: MYSQL_USER
+        fromDatabase:
+          name: cipherdrive-mysql
+          property: username
+      - key: MYSQL_PASSWORD
+        fromDatabase:
+          name: cipherdrive-mysql
+          property: password
+
+      # ── JWT secret (GENERATE YOUR OWN — see DEPLOYMENT.md) ──
+      - key: JWT_SECRET_KEY
+        sync: false             # marked secret — set manually in Render UI
+
+      - key: JWT_ISSUER
+        value: cipherdrive-dna
+
+      # ── MinIO — use Render Disk + sidecar pattern OR external S3 ──
+      # For MVP: use the local disk as file storage via MinIO sidecar
+      # See DEPLOYMENT.md for production-grade S3 setup
+      - key: MINIO_ENDPOINT
+        value: http://localhost:9000   # sidecar minio running in same container
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      - key: MINIO_BUCKET
+        value: cipherdrive-files
+
+      # ── JVM tuning ──
+      - key: JAVA_OPTS
+        value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+
+      # ── Render injects PORT automatically ──
+      - key: PORT
+        value: 8080
+
+    # Persistent disk for MinIO local storage (1GB free, expandable)
+    disk:
+      name: cipherdrive-storage
+      mountPath: /data/minio
+      sizeGB: 1                 # 1GB free; upgrade for production
+
+  # ── MySQL Database ────────────────────────────────────────────
+  - type: pserv                 # private service — only reachable from app
+    name: cipherdrive-mysql
+    runtime: mysql
+    plan: starter               # 1GB RAM, 1GB storage — enough for MVP
+    region: singapore
+    ipAllowList: []             # only allow connections from Render-internal services
+    # Initial schema is loaded by Spring Boot's `ddl-auto: validate` mode
+    # (the app expects the schema from cipherdrive_dna_mvp.sql to already exist).
+    # Render MySQL auto-creates an empty DB; import the schema manually once:
+    #   See DEPLOYMENT.md → "Step 5: Initialize the database schema"

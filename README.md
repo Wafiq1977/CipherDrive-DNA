@@ -4,6 +4,11 @@
 
 > This repository contains the **Minimum Viable Product (MVP)** source code accompanying the DNA-TRUST research framework.
 
+[![CI](https://github.com/Wafiq1977/CipherDrive-DNA/actions/workflows/ci.yml/badge.svg)](https://github.com/Wafiq1977/CipherDrive-DNA/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.5-green.svg)](https://spring.io/projects/spring-boot)
+
 ---
 
 ## 📖 Overview
@@ -169,6 +174,49 @@ mvn test
 ```
 
 Tests run with the `test` profile (in-memory H2 + mock MinIO) — no external services required.
+
+---
+
+## 🐳 Docker Deployment
+
+Run the entire stack (app + MySQL + MinIO) locally with one command:
+
+```bash
+cp .env.example .env        # Fill in real passwords
+docker compose up -d        # Start all services
+docker compose logs -f app  # Tail application logs
+```
+
+Endpoints after startup:
+- App:       http://localhost:8080
+- MinIO UI:  http://localhost:9001
+- MySQL:     localhost:3306
+
+---
+
+## ☁️ Production Deployment
+
+Deploy to a public URL so anyone can access your instance. The recommended platform is **[Render.com](https://render.com)** — click-click deploy, $300 free credit for new users.
+
+### One-click Render deploy
+
+1. Generate a JWT secret locally:
+   ```bash
+   openssl rand -base64 32 | base64
+   ```
+2. Go to 👉 https://dashboard.render.com/select-repo?type=blueprint
+3. Select this repository — Render auto-detects `render.yaml`.
+4. Fill in the secret env vars when prompted (`JWT_SECRET_KEY`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`).
+5. Click **Apply**. Render provisions MySQL + app + disk automatically.
+6. Initialize the DB schema from `cipherdrive_dna_mvp.sql` (one-time, see [`DEPLOYMENT.md`](./DEPLOYMENT.md)).
+
+### Full step-by-step guide
+
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for:
+- Detailed Render walkthrough with screenshots
+- Railway.app / Fly.io / VPS alternatives
+- Production hardening checklist
+- Troubleshooting common issues
 
 ---
 
